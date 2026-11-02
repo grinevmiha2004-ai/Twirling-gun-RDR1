@@ -162,7 +162,11 @@ static void tickAnimation(int actor, DWORD now) {
     }
 }
 static void ScriptMain() {
-    settings(); log("TwirlingGun 0.1 experimental loaded; enabled=%d; input=%s", enabled, inputAction);
+    settings();
+    // 0.1 is withdrawn after an in-game report of missing animation and lost
+    // controls. Do not permit INI settings to re-enable an unverified binding.
+    enabled = false;
+    log("TwirlingGun WITHDRAWN: animation disabled after control-loss report; remove this plugin");
     while (true) {
         Hook::wait(0);
         const int actor = Hook::invoke<int>(0xE8CFDD53, -1);

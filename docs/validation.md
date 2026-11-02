@@ -1,3 +1,13 @@
+# Runtime failure: release withdrawn
+
+User's game log contains three submissions, each followed by a positive native identity check and then cancellation. The user reports no gun spin and loss of controls. This supersedes all readiness assumptions below. Compiler and host-test passes did not validate the game feature.
+
+The 0.1 binary and package are removed from the current tree; current ScriptMain forces enabled=false before its loop. The INI cannot re-enable the unverified animation path. Existing copies and Git history are not revoked by this removal. Removal plus a game restart is the recommended recovery; no in-game recovery command is claimed tested.
+
+The animation-set replacement/cleanup path is a suspected cause, not a proven sole root cause. Exact Rampage invocation or the relevant animation resources are required to continue. No corrected spinning release is available.
+
+---
+
 # Evidence and validation
 
 ## Inputs
