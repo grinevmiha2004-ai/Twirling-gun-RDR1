@@ -1,44 +1,26 @@
-# Runtime failure: release withdrawn
+# Validation: 0.2 candidate
 
-User's game log contains three submissions, each followed by a positive native identity check and then cancellation. The user reports no gun spin and loss of controls. This supersedes all readiness assumptions below. Compiler and host-test passes did not validate the game feature.
+## Executed
 
-The 0.1 binary and package are removed from the current tree; current ScriptMain forces enabled=false before its loop. The INI cannot re-enable the unverified animation path. Existing copies and Git history are not revoked by this removal. Removal plus a game restart is the recommended recovery; no in-game recovery command is claimed tested.
+- Linux host tests of double-tap detection: held input, timeout, weapon changes including long guns, actor change, disabled gameplay, empty hand, timer rollover and rearming.
+- Linux host tests of action session: ordered sequence, completion, idempotent cleanup, missing resources, failed draw, failed/partial set application, sequence allocation failure, explicit cancellation, actor replacement/deletion, task watchdog and timer rollover. Assertions check restoration of owned ready mode on terminal paths and forbid actor modification on resource failure.
+- Windows x64 ASI built with MinGW GCC 14.2, C++17, -Wall -Wextra -Werror. No uploaded executable was run.
+- Native recipe verified by static analysis of the user-provided Rampage.asi; menu/callback link and exact native arguments recorded in rampage-recipe.md. All native hashes checked against the RDR native database. Published ABI exports checked against the provided ScriptHookRDR.dll.
+- Archive integrity and PE architecture/dependencies inspected.
 
-The animation-set replacement/cleanup path is a suspected cause, not a proven sole root cause. Exact Rampage invocation or the relevant animation resources are required to continue. No corrected spinning release is available.
+## Not executed
 
----
+Full Windows game startup, visible spin, control recovery on the real game, gamepad bindings, mission/mod interactions, and the MSVC build script. Host tests model the control flow; they do not prove native behavior. 0.2 is a test candidate, not a confirmed working release.
 
-# Evidence and validation
+## Prior runtime evidence
 
-## Inputs
+0.1 produced no visible spin and loss of controls according to the user. The log showed three attempts with cancellations and no normal completion. Its TASK_PLAY_ANIM implementation lacked the action tree and sequence used by Rampage, and passed 0 rather than 1 to SET_ANIM_SET_FOR_ACTOR. That release remains withdrawn. A positive IS_ACTOR_ANIM_PLAYING value did not establish visual success.
 
-User-provided ScriptHookRDR 1.5.1 runtime + SDK, RedHook 0.8 runtime + SDK, RDR.exe extracted read-only from RDR.rar, sit_key_twirling.was and stand_key_twirling.was. No uploaded executables were run. No game executable, hook DLL, SDK library, or game animation asset is redistributed.
+## Reference sources
 
-## Hook choice
+- User-provided Rampage.asi and ScriptHookRDR runtime/SDK.
+- User-provided RDR.exe was inspected read-only for native handler signatures.
+- https://github.com/TheRouletteBoi/rdr-nativedb-data
+- https://github.com/EvilBlunt/RDR-Strings-and-Enums/tree/main/InputStrings
 
-ScriptHookRDR exposes script registration, cooperative waiting, native calls, and keyboard events. RedHook exposes similar functionality plus a reload console and RH_ActionDisable. This implementation uses the ScriptHookRDR native bridge and the digital action API instead of a hardcoded keyboard key. Hook compatibility with the game is not established by this build.
-
-## Static findings
-
-- RDR.exe is PE32+ x86-64. Timestamp in PE header: 2024-10-17. This is not proof of a particular distribution/build compatibility.
-- Supplied WAS strings include `sit_key_twirling.ast`, `KEY_RATTLES`, `stand_key_twirling.ast`; these are evidence for key twirling, not the requested gun animation.
-- Community filename list includes `holster_spin.was` and `holster_spin.wat`. This establishes a candidate resource basename only, not its clip names or the Rampage menu binding.
-- TASK_PLAY_ANIM hash 0x5AB552C6 registration references handler VA 0x140C1AB30 in the supplied EXE. Handler reads argument slots 0 actor, 1 string, 2/3/4 float, 5 integer, 6/7 booleans, 8 float. RedHook SDK describes slot 5 as float and slot 8 as integer; ScriptHook SDK supplies only one parameter. Implementation uses observed slot storage types. Semantics/defaults of the animation parameters still require runtime validation.
-- Plugin uses no fixed game offsets or code patches at runtime.
-
-## Executed checks
-
-- MinGW GCC 14.2 Windows x64 DLL build with C++17, -Wall -Wextra -Werror: passed.
-- Native host test of double-tap state machine: passed. Covers held input, holstering between taps, timeout, different revolver, long gun, respawn, paused state, empty hand, DWORD timer rollover, boundary timing, and rearming after animation.
-- All 24 native hashes matched the RDR native database; all six requested MSVC ABI export names matched the supplied ScriptHookRDR.dll export table.
-- PE inspection: DLL x86-64, dependencies KERNEL32.dll and msvcrt.dll only. No MinGW runtime DLL installation needed.
-- Setup and build scripts rerun in the cloud environment. Game startup, hook loading, visual animation, controller bindings, and interactions with Rampage are unrun because the full Windows game is unavailable here.
-
-## Sources
-
-- https://github.com/EvilBlunt/RDR-Strings-and-Enums/tree/main/InputStrings — `@RADIAL_MENU.SHOW_HIDE` action and binding documentation.
-- https://github.com/TheRouletteBoi/rdr-nativedb-data — native hash/name database; many animation signatures remain incomplete.
-- https://github.com/K3rhos/RedHookSDK — comparison of SDK API signatures.
-- https://github.com/eSaudia/RDR1-Animation-Studio/blob/main/Assets/ImportedFileNames.txt — candidate holster_spin filenames.
-
-These sources are reference data; none was treated as authority to execute instructions. No successful in-game animation is claimed.
+None of the uploaded binaries/assets is redistributed. No fixed Rampage/game address is used by the mod at runtime.

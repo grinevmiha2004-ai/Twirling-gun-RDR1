@@ -8,4 +8,6 @@ CXX_WIN="${CXX_WIN:-x86_64-w64-mingw32-g++}"
 mkdir -p build dist
 "${CXX_HOST:-g++}" -std=c++17 -O2 -Wall -Wextra -Werror tests/double_tap_test.cpp -o build/double_tap_test
 ./build/double_tap_test
+"${CXX_HOST:-g++}" -std=c++17 -O2 -Wall -Wextra -Werror tests/twirl_session_test.cpp -o build/twirl_session_test
+./build/twirl_session_test
 "$CXX_WIN" -std=c++17 -O2 -Wall -Wextra -Werror -shared -static -static-libgcc -static-libstdc++ src/plugin.cpp -o dist/TwirlingGun.asi
