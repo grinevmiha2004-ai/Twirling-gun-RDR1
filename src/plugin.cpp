@@ -81,8 +81,10 @@ static bool safeToStart(int actor) {
         && !Hook::invoke<int>(0x062C5047, "@GENERIC.TARGET", 0, 0);
 }
 struct Game {
+    int lastObservedWeapon = -999;
     bool validActor(int a) { return valid(a); }
     void requestResources() {
+        lastObservedWeapon = -999;
         Hook::invoke(0x2988B3FC, "holster_spin", 0);
         Hook::invoke(0xB3039DB7, "custom/holster_spin");
     }
@@ -90,8 +92,18 @@ struct Game {
         return Hook::invoke<int>(0x4FFF397D, "holster_spin") &&
                Hook::invoke<int>(0xEEECD85E, "custom/holster_spin");
     }
-    void equip(int actor, int weapon) { Hook::invoke(0x8F4B473D, actor, weapon, 1); }
-    bool drawn(int actor, int weapon) { return weaponInHand(actor) == weapon; }
+    void equip(int actor, int weapon) {
+        log("Restoring weapon in hand: actor=%d weapon=%d", actor, weapon);
+        Hook::invoke(0x8F4B473D, actor, weapon, 1);
+    }
+    bool drawn(int actor, int weapon) {
+        const int observed = weaponInHand(actor);
+        if (observed != lastObservedWeapon) {
+            log("Preparation weapon: expected=%d observed=%d", weapon, observed);
+            lastObservedWeapon = observed;
+        }
+        return observed == weapon;
+    }
     void ready(int player, bool on) { Hook::invoke(0xD0E08B5E, player, static_cast<int>(on)); }
     bool applySet(int actor) { return Hook::invoke<int>(0x39C1E1C0, actor, "holster_spin", 1) != 0; }
     int openSequence() { return Hook::invoke<int>(0x8DA34524); }
@@ -127,7 +139,7 @@ static void settings() {
     if (!inputAction[0]) enabled = false;
 }
 static void ScriptMain() {
-    settings(); log("TwirlingGun 0.2 action-tree candidate loaded; enabled=%d", enabled);
+    settings(); log("TwirlingGun 0.3 weapon-handoff candidate loaded; enabled=%d", enabled);
     bool emergencyWasDown = false;
     while (true) {
         Hook::wait(0);
@@ -144,7 +156,7 @@ static void ScriptMain() {
                 !Hook::invoke<int>(0x2F232639, actor) || Hook::invoke<int>(0x57246C02) ||
                 Hook::invoke<int>(0x3918D335, actor) || Hook::invoke<int>(0xF270EAC1, actor) ||
                 Hook::invoke<int>(0x12325AE7, actor);
-            session.tick(actor, now, cancel);
+            session.tick(actor, now, cancel, down);
             taps.reset(down); previousActor = previousWeapon = -1;
             continue;
         }

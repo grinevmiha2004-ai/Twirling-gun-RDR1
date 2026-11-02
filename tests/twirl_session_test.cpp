@@ -25,61 +25,82 @@ struct FakeGame {
     void resetSet(int) { events.push_back("reset set"); }
     void message(const char*) {}
 };
+template<class Session> void prepare(Session& s) {
+    s.begin(1,7,0,0);
+    s.tick(1,1,false);   // loaded, wait for release
+    s.tick(1,2,false);   // released
+    s.tick(1,152,false);// set + equip
+    s.tick(1,153,false);// first drawn sample
+    s.tick(1,253,false);// stable 100ms: submit
+}
 int main() {
-    { // completion: ordered sequence + one release + paired readymode restoration
-        FakeGame g; TwirlSession s(g); s.begin(1, 7, 0, 0);
-        s.tick(1, 1, false); s.tick(1, 2, false); s.tick(1, 3, false);
-        assert(s.active()); g.taskStatus = 0; s.tick(1, 4, false);
+    {
+        FakeGame g; TwirlSession s(g); prepare(s);
+        assert(s.active()); g.taskStatus=0; s.tick(1,254,false);
+        const std::vector<std::string> want{"request","ready on","set","equip","open","action","close","perform","release","reset set","ready off"};
+        assert(!s.active()); assert(g.events==want); s.finish(true); assert(g.events==want);
+    }
+    {
+        FakeGame g; g.resources=false; TwirlSession s(g); s.begin(1,7,0,0);
+        s.tick(1,3000,false); assert(!s.active()); assert(g.events==std::vector<std::string>{"request"});
+    }
+    {
+        FakeGame g; g.acceptSet=false; TwirlSession s(g); prepare(s);
         assert(!s.active());
-        const std::vector<std::string> want{"request","ready on","set","open","action","close","perform","release","reset set","ready off"};
-        assert(g.events == want);
-        s.finish(true); assert(g.events == want); // cleanup is idempotent
+        assert((g.events==std::vector<std::string>{"request","ready on","set","reset set","ready off"}));
     }
-    { // missing tree/set must never change actor or player state
-        FakeGame g; g.resources = false; TwirlSession s(g); s.begin(1,7,0,0);
-        s.tick(1,3000,false); assert(!s.active());
-        assert(g.events == std::vector<std::string>{"request"});
-    }
-    { // invalid/partial set application still restores owned state
-        FakeGame g; g.acceptSet = false; TwirlSession s(g); s.begin(1,7,0,0);
-        s.tick(1,1,false); s.tick(1,2,false);
+    {
+        FakeGame g; g.seq=-1; TwirlSession s(g); prepare(s);
         assert(!s.active());
-        assert((g.events == std::vector<std::string>{"request","ready on","set","reset set","ready off"}));
+        assert((g.events==std::vector<std::string>{"request","ready on","set","equip","open","reset set","ready off"}));
     }
-    { // sequence allocation failure must not leak ready mode
-        FakeGame g; g.seq = -1; TwirlSession s(g); s.begin(1,7,0,0);
-        s.tick(1,1,false); s.tick(1,2,false);
-        assert(!s.active());
-        assert((g.events == std::vector<std::string>{"request","ready on","set","open","reset set","ready off"}));
+    for (int kind=0;kind<4;++kind) {
+        FakeGame g; TwirlSession s(g); prepare(s);
+        if (kind==0) s.tick(1,254,true);
+        if (kind==1) s.tick(2,254,false);
+        if (kind==2) s.tick(1,8253,false);
+        if (kind==3) { g.valid=false; s.tick(1,254,false); }
+        assert(!s.active()); assert(g.events.back()=="ready off");
+        if(g.valid) { auto n=g.events.size(); assert(g.events[n-4]=="clear" && g.events[n-3]=="reset tree" && g.events[n-2]=="reset set"); }
     }
-    for (int cancelType = 0; cancelType < 4; ++cancelType) {
+    { // second button press remains held: no actor mutation or sequence
         FakeGame g; TwirlSession s(g); s.begin(1,7,0,0);
-        s.tick(1,1,false); s.tick(1,2,false);
-        if (cancelType == 0) s.tick(1,3,true); // F10/pause/death cancellation
-        if (cancelType == 1) s.tick(2,3,false); // replacement actor
-        if (cancelType == 2) s.tick(1,8002,false); // stuck action
-        if (cancelType == 3) { g.valid=false; s.tick(1,3,false); }
-        assert(!s.active()); assert(g.events.back() == "ready off");
-        if (g.valid) {
-            auto n=g.events.size();
-            assert(g.events[n-4]=="clear" && g.events[n-3]=="reset tree" && g.events[n-2]=="reset set");
-        }
+        s.tick(1,1,false,true); s.tick(1,500,false,true);
+        assert(g.events==std::vector<std::string>{"request"});
+        s.tick(1,501,false,false); s.tick(1,650,false,false);
+        assert(g.events==std::vector<std::string>{"request"});
+        s.tick(1,651,false,false);
+        assert((g.events==std::vector<std::string>{"request","ready on","set","equip"}));
+        s.finish(false);
     }
-    { // first tap already holstered weapon: wait for redrawing before set/task
-        FakeGame g; g.hand=false; TwirlSession s(g); s.begin(1,7,0,0);
-        s.tick(1,1,false); s.tick(1,2,false);
-        assert((g.events == std::vector<std::string>{"request","equip"}));
-        g.hand=true; s.tick(1,3,false); assert(s.active());
-        s.tick(1,4,true); assert(g.events.back()=="ready off");
+    { // a transient drawn sample followed by holstering must reset stability
+        FakeGame g; TwirlSession s(g); s.begin(1,7,0,0);
+        s.tick(1,1,false); s.tick(1,2,false); s.tick(1,152,false);
+        s.tick(1,153,false); g.hand=false; s.tick(1,253,false);
+        assert(g.events.back()=="equip");
+        g.hand=true; s.tick(1,300,false); s.tick(1,399,false);
+        assert(g.events.back()=="equip");
+        s.tick(1,400,false); assert(g.events.back()=="release"); s.finish(true);
     }
-    { // draw failure must not change animation or readymode
+    { // permanently missing weapon: fail instead of spinning an empty hand
         FakeGame g; g.hand=false; TwirlSession s(g); s.begin(1,7,0,0);
-        s.tick(1,1,false); s.tick(1,1001,false);
-        assert(!s.active()); assert((g.events==std::vector<std::string>{"request","equip"}));
+        s.tick(1,1,false); s.tick(1,2,false); s.tick(1,152,false); s.tick(1,1652,false);
+        assert(!s.active()); assert(g.events.back()=="ready off");
+        for(const auto& e:g.events) assert(e!="perform");
+    }
+    { // no equip/holster calls during playback: natural spin ending owns weapon
+        FakeGame g; TwirlSession s(g); prepare(s);
+        auto count=g.events.size(); s.tick(1,300,false); s.tick(1,600,false);
+        assert(g.events.size()==count); s.finish(true);
+    }
+    { // cancellation while the button is held never changes the actor
+        FakeGame g; TwirlSession s(g); s.begin(1,7,0,0);
+        s.tick(1,1,false,true); s.tick(1,3001,false,true);
+        assert(!s.active()); assert(g.events==std::vector<std::string>{"request"});
     }
     { // resource timeout across tick rollover
         FakeGame g; g.resources=false; TwirlSession s(g); s.begin(1,7,0,UINT32_MAX-100);
         s.tick(1,3000,false); assert(!s.active());
     }
-    std::puts("PASS: action order, completion, idempotent cleanup, load/draw/set/sequence failures, cancellation, actor loss, watchdog, tick rollover");
+    std::puts("PASS: release gate, post-set equip, stable weapon gate, transition regression, missing weapon, action order, no playback equip, completion, failure cleanup, cancel, watchdog, rollover");
 }

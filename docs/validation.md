@@ -1,4 +1,10 @@
-# Validation: 0.2 candidate
+# Validation: 0.3 weapon handoff candidate
+
+## 0.3 regression
+
+User confirms that 0.2 plays the correct motion but reports normal holstering followed by empty-hand animation. The cause is not proven from a new log. 0.3 changes ordering: release the actual button, allow 150ms input settling, assign the animation set, unconditionally restore the original revolver, then require 100ms stable drawn state before sequence submission. Retry restoration only during bounded preparation, never during the action. Holding the button cannot trigger preparation; failure to establish stable weapon state prevents sequence submission.
+
+New host regression cases cover held-button gate, exact set-before-equip ordering, transient drawn-to-holstered samples, no action while weapon is absent, restoration cleanup on preparation failure, and no equip operations during playback. These tests exercise mocked native observations, not actual game rendering.
 
 ## Executed
 
@@ -10,7 +16,7 @@
 
 ## Not executed
 
-Full Windows game startup, visible spin, control recovery on the real game, gamepad bindings, mission/mod interactions, and the MSVC build script. Host tests model the control flow; they do not prove native behavior. 0.2 is a test candidate, not a confirmed working release.
+Full Windows game startup, visible spin, control recovery on the real game, gamepad bindings, mission/mod interactions, and the MSVC build script. Host tests model the control flow; they do not prove native behavior. 0.3 is a test candidate, not a confirmed working release.
 
 ## Prior runtime evidence
 

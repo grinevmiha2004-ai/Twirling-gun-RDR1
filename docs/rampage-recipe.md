@@ -36,7 +36,9 @@ Key instruction references: set at 0x1800D3511–0x1800D3540; sequence open at 0
 
 The imported native bridge is nativeInit at IAT VA 0x1801A1508, nativePush64 at 0x1801A1558, and nativeCall at 0x1801A1520. The encoded native identifiers decode using seed 0x4717358C, also visibly initialized at 0x1800FA678. Decoded resource hashes match the independent RDR native database (0x2988B3FC, 0x4FFF397D, 0xB3039DB7, 0xEEECD85E); the callback hashes resolve to the functions above.
 
-## Differences in 0.2
+## Differences in 0.2 / 0.3
+
+0.3 additionally waits for button release and input settling, restores the original weapon after assigning the animation set, and requires stable drawn state before starting the sequence. This ordering addresses the user-reported empty-hand spin in 0.2 and remains unverified in-game.
 
 The mod adds double-tap detection, revolver-only filtering, resource/draw/task timeouts, original-weapon redrawing when the first tap already holstered it, and F10 cancellation. Unlike the callback's unbounded status loop, every owned-state failure path releases ready mode. The mod resets its assigned set on termination; forced interruption also clears its own submitted task and resets the action tree. These additional cleanup operations are regression-tested with a fake game API but still require in-game validation.
 
